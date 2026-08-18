@@ -2,6 +2,7 @@ package com.android.contacts.data.contactdetails.mapper
 
 import android.content.Context
 import android.provider.ContactsContract.CommonDataKinds.Email
+import android.media.RingtoneManager
 import android.provider.ContactsContract.CommonDataKinds.Event
 import android.provider.ContactsContract.CommonDataKinds.Im
 import android.provider.ContactsContract.CommonDataKinds.Phone
@@ -9,6 +10,7 @@ import android.provider.ContactsContract.CommonDataKinds.Relation
 import android.provider.ContactsContract.CommonDataKinds.SipAddress
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import android.provider.ContactsContract.DisplayNameSources as Sources
+import androidx.core.net.toUri
 import com.android.contacts.compat.EventCompat
 import com.android.contacts.data.contactdetails.model.ContactCapabilities
 import com.android.contacts.data.contactdetails.model.ContactDataItem
@@ -35,6 +37,8 @@ import com.android.contacts.model.dataitem.SipAddressDataItem
 import com.android.contacts.model.dataitem.StructuredNameDataItem
 import com.android.contacts.model.dataitem.StructuredPostalDataItem
 import com.android.contacts.model.dataitem.WebsiteDataItem
+import com.android.contacts.group.GroupMetaData
+import com.android.contacts.model.dataitem.GroupMembershipDataItem
 import com.android.contacts.quickcontact.DirectoryContactUtil
 import com.android.contacts.quickcontact.InvisibleContactUtil
 import com.android.contacts.util.DateUtils
@@ -72,9 +76,26 @@ internal class ContactDetailsMapperImpl @Inject constructor(
             photoId = contact.photoId,
             photo = mapPhoto(contact),
             customRingtone = contact.customRingtone,
+            customRingtoneTitle = ringtoneTitle(contact.customRingtone),
+            groups = mapGroups(contact),
             dataItems = mapDataItems(contact, excludedMimeTypes),
             capabilities = mapCapabilities(contact),
         )
+    }
+
+    private fun mapGroups(contact: Contact): List<String> {
+        val titles = contact.groupMetaData
+            .orEmpty()
+            .filterNot { group -> group.favorites || group.defaultGroup }
+            .associateBy(GroupMetaData::groupId, GroupMetaData::groupName)
+
+        return contact.rawContacts
+            .orEmpty()
+            .flatMap { rawContact -> rawContact.dataItems.orEmpty() }
+            .filterIsInstance<GroupMembershipDataItem>()
+            .mapNotNull { dataItem -> dataItem.groupRowId }
+            .distinct()
+            .mapNotNull { groupId -> titles[groupId]?.trim()?.takeIf(String::isNotEmpty) }
     }
 
     private fun mapDisplayNameSource(displayNameSource: Int): ContactDisplayNameSource {
@@ -300,6 +321,9 @@ internal class ContactDetailsMapperImpl @Inject constructor(
                 dataItem,
                 false,
             ),
+            company = dataItem.company,
+            department = dataItem.department,
+            title = dataItem.title,
         )
     }
 
@@ -339,6 +363,16 @@ internal class ContactDetailsMapperImpl @Inject constructor(
         )
     }
 
+    private fun ringtoneTitle(customRingtone: String?): String? {
+        if (customRingtone.isNullOrEmpty()) {
+            return null
+        }
+
+        val ringtone = RingtoneManager.getRingtone(context, customRingtone.toUri())
+
+        return ringtone?.getTitle(context)
+    }
+
     private fun mapEvent(dataItem: EventDataItem): ContactDataItem.Event {
         val dataString = displayString(dataItem)
         val eventType = dataItem.contentValues.getAsInteger(Event.TYPE)
@@ -356,6 +390,7 @@ internal class ContactDetailsMapperImpl @Inject constructor(
             },
             isRecurringAnnually =
                 eventType == Event.TYPE_ANNIVERSARY || eventType == Event.TYPE_BIRTHDAY,
+            isBirthday = eventType == Event.TYPE_BIRTHDAY,
         )
     }
 
