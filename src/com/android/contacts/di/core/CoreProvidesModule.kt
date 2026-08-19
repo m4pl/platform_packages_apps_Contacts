@@ -1,9 +1,18 @@
 package com.android.contacts.di.core
 
+import android.content.ClipboardManager
+import android.content.ContentResolver
+import android.content.Context
+import android.content.pm.PackageManager
+import android.telecom.TelecomManager
+import android.telephony.TelephonyManager
+import com.android.contacts.list.ContactListFilterController
+import com.android.contacts.util.core.CurrentTimeProvider
 import dagger.Module
 import dagger.Provides
 import dagger.Reusable
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -31,5 +40,59 @@ internal class CoreProvidesModule {
     @MainDispatcher
     fun provideMainDispatcher(): CoroutineDispatcher {
         return Dispatchers.Main
+    }
+
+    @Provides
+    @Reusable
+    fun provideTelephonyManager(
+        @ApplicationContext context: Context,
+    ): TelephonyManager {
+        return context.getSystemService(TelephonyManager::class.java)
+    }
+
+    @Provides
+    @Reusable
+    fun provideTelecomManager(
+        @ApplicationContext context: Context,
+    ): TelecomManager {
+        return context.getSystemService(TelecomManager::class.java)
+    }
+
+    @Provides
+    @Reusable
+    fun provideClipboardManager(
+        @ApplicationContext context: Context,
+    ): ClipboardManager {
+        return context.getSystemService(ClipboardManager::class.java)
+    }
+
+    @Provides
+    @Reusable
+    fun providePackageManager(
+        @ApplicationContext context: Context,
+    ): PackageManager {
+        return context.packageManager
+    }
+
+    @Provides
+    @Reusable
+    fun provideContentResolver(
+        @ApplicationContext context: Context,
+    ): ContentResolver {
+        return context.contentResolver
+    }
+
+    @Provides
+    @Reusable
+    fun provideContactListFilterController(
+        @ApplicationContext context: Context,
+    ): ContactListFilterController {
+        return ContactListFilterController.getInstance(context)
+    }
+
+    @Provides
+    @Reusable
+    fun provideCurrentTimeProvider(): CurrentTimeProvider {
+        return CurrentTimeProvider { System.currentTimeMillis() }
     }
 }
