@@ -10,12 +10,10 @@ import android.provider.ContactsContract.Contacts
 import android.provider.ContactsContract.Settings as ContactsContractSettings
 import android.provider.Settings
 import android.telecom.TelecomManager
-import androidx.activity.result.ActivityResultLauncher
 import com.android.contacts.activities.LicenseActivity
 import com.android.contacts.compat.TelecomManagerUtil
 import com.android.contacts.interactions.ExportDialogFragment
 import com.android.contacts.interactions.ImportDialogFragment
-import com.android.contacts.list.AccountFilterActivity
 import com.android.contacts.logging.ScreenEvent.ScreenType
 import com.android.contacts.ui.settings.SettingsActivity
 import com.android.contacts.ui.settings.screen.model.SettingsEffect as Effect
@@ -40,7 +38,6 @@ internal class SettingsEffectHandlerImplTest {
     private val activity = mockk<Activity>(relaxed = true)
     private val telecomManager = mockk<TelecomManager>()
     private val clipboardManager = mockk<ClipboardManager>(relaxed = true)
-    private val contactsFilterLauncher = mockk<ActivityResultLauncher<Intent>>(relaxed = true)
     private val fragmentManager = mockk<FragmentManager>(relaxed = true)
 
     private val effectHandler = SettingsEffectHandlerImpl(
@@ -48,7 +45,6 @@ internal class SettingsEffectHandlerImplTest {
         newLocalProfileExtra = NEW_LOCAL_PROFILE_EXTRA,
         telecomManager = telecomManager,
         clipboardManager = clipboardManager,
-        contactsFilterLauncher = contactsFilterLauncher,
     )
 
     @Before
@@ -114,19 +110,6 @@ internal class SettingsEffectHandlerImplTest {
         assertEquals(
             ContactsContractSettings.ACTION_SET_DEFAULT_ACCOUNT,
             startedIntent().action,
-        )
-    }
-
-    @Test
-    fun openContactsFilter_launchesTheFilterForResult() {
-        val intentSlot = slot<Intent>()
-
-        effectHandler.handle(Effect.OpenContactsFilter)
-
-        verify { contactsFilterLauncher.launch(capture(intentSlot)) }
-        assertEquals(
-            AccountFilterActivity::class.java.name,
-            intentSlot.captured.component?.className,
         )
     }
 

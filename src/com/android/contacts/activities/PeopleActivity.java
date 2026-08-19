@@ -36,18 +36,6 @@ import android.os.Handler;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.Intents;
 import android.provider.ContactsContract.ProviderStatus;
-import androidx.annotation.LayoutRes;
-import androidx.appcompat.graphics.drawable.DrawerArrowDrawable;
-import androidx.coordinatorlayout.widget.CoordinatorLayout;
-import com.google.android.material.snackbar.Snackbar;
-import androidx.core.content.ContextCompat;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
-import androidx.core.view.GravityCompat;
-import androidx.drawerlayout.widget.DrawerLayout;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
-import androidx.appcompat.app.ActionBarDrawerToggle;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
 import android.util.Log;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
@@ -58,6 +46,18 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.ImageButton;
 import android.widget.Toast;
+
+import androidx.annotation.LayoutRes;
+import androidx.appcompat.app.ActionBarDrawerToggle;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.graphics.drawable.DrawerArrowDrawable;
+import androidx.appcompat.widget.Toolbar;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
+import androidx.core.content.ContextCompat;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.android.contacts.AppCompatContactsActivity;
 import com.android.contacts.ContactSaveService;
@@ -71,7 +71,6 @@ import com.android.contacts.group.GroupListItem;
 import com.android.contacts.group.GroupMembersFragment;
 import com.android.contacts.group.GroupNameEditDialogFragment;
 import com.android.contacts.group.GroupUtil;
-import com.android.contacts.list.AccountFilterActivity;
 import com.android.contacts.list.ContactListFilter;
 import com.android.contacts.list.ContactListFilterController;
 import com.android.contacts.list.ContactListFilterController.ContactListFilterListener;
@@ -100,7 +99,7 @@ import com.android.contacts.widget.FloatingActionButtonController;
 import com.android.contactsbind.FeatureHighlightHelper;
 import com.android.contactsbind.HelpUtils;
 import com.android.contactsbind.ObjectFactory;
-
+import com.google.android.material.snackbar.Snackbar;
 import com.google.common.util.concurrent.Futures;
 
 import java.util.Collections;
@@ -978,7 +977,7 @@ public class PeopleActivity extends AppCompatContactsActivity implements
         switchToOrUpdateGroupView(GroupUtil.ACTION_SWITCH_GROUP);
     }
 
-    private void onFilterMenuItemClicked(Intent intent) {
+    private void onFilterMenuItemClicked(ContactListFilter filter) {
         // We must pop second level first to "restart" mContactsListFragment before changing filter.
         if (isInSecondLevel()) {
             popSecondLevel();
@@ -991,8 +990,7 @@ public class PeopleActivity extends AppCompatContactsActivity implements
             mContactListFilterController.setContactListFilter(current, false);
         }
         mCurrentView = ContactsView.ACCOUNT_VIEW;
-        AccountFilterUtil.handleAccountFilterResult(mContactListFilterController,
-                AppCompatActivity.RESULT_OK, intent);
+        AccountFilterUtil.handleAccountFilterResult(mContactListFilterController, filter);
     }
 
     private void switchToOrUpdateGroupView(String action) {
@@ -1049,11 +1047,8 @@ public class PeopleActivity extends AppCompatContactsActivity implements
     }
 
     private void resetFilter() {
-        final Intent intent = new Intent();
         final ContactListFilter filter = AccountFilterUtil.createContactsFilter(this);
-        intent.putExtra(AccountFilterActivity.EXTRA_CONTACT_LIST_FILTER, filter);
-        AccountFilterUtil.handleAccountFilterResult(
-                mContactListFilterController, AppCompatActivity.RESULT_OK, intent);
+        AccountFilterUtil.handleAccountFilterResult(mContactListFilterController, filter);
     }
 
     // Reset toolbar and status bar color to Contacts theme color.
@@ -1227,9 +1222,7 @@ public class PeopleActivity extends AppCompatContactsActivity implements
 
     @Override
     public void onAccountViewSelected(ContactListFilter filter) {
-        final Intent intent = new Intent();
-        intent.putExtra(AccountFilterActivity.EXTRA_CONTACT_LIST_FILTER, filter);
-        onFilterMenuItemClicked(intent);
+        onFilterMenuItemClicked(filter);
     }
 
     public boolean isGroupView() {
