@@ -13,7 +13,6 @@ import android.provider.Settings
 import android.telecom.TelecomManager
 import android.util.Log
 import androidx.activity.result.ActivityResultLauncher
-import com.android.contacts.activities.LicenseActivity
 import com.android.contacts.compat.TelecomManagerUtil
 import com.android.contacts.interactions.ExportDialogFragment
 import com.android.contacts.interactions.ImportDialogFragment
@@ -46,7 +45,6 @@ internal class SettingsEffectHandlerImpl(
             is Effect.ShowImportDialog -> showImportDialog()
             is Effect.ShowExportDialog -> showExportDialog()
             is Effect.OpenBlockedNumbers -> openBlockedNumbers()
-            is Effect.OpenLicenses -> openLicenses()
             is Effect.OpenAppPermissions -> openAppPermissions()
         }
     }
@@ -106,10 +104,6 @@ internal class SettingsEffectHandlerImpl(
             .setData(Uri.fromParts("package", activity.packageName, null))
 
         startActivity(intent)
-    }
-
-    private fun openLicenses() {
-        startActivity(Intent(activity, LicenseActivity::class.java))
     }
 
     private fun startActivity(intent: Intent) {
