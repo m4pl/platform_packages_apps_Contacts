@@ -191,6 +191,8 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
             if (CompatUtils.isMarshmallowCompatible()) {
                 projectionList.add(Data.CARRIER_PRESENCE);
             }
+            projectionList.add(Data.PREFERRED_PHONE_ACCOUNT_COMPONENT_NAME);
+            projectionList.add(Data.PREFERRED_PHONE_ACCOUNT_ID);
             COLUMNS = projectionList.toArray(new String[projectionList.size()]);
         }
 
@@ -263,6 +265,8 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
         public static final int IS_USER_PROFILE = 61;
 
         public static final int CARRIER_PRESENCE = 62;
+        public static final int PREFERRED_PHONE_ACCOUNT_COMPONENT_NAME = 63;
+        public static final int PREFERRED_PHONE_ACCOUNT_ID = 64;
     }
 
     /**
@@ -674,6 +678,9 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
         if (CompatUtils.isMarshmallowCompatible()) {
             cursorColumnToContentValues(cursor, cv, ContactQuery.CARRIER_PRESENCE);
         }
+        cursorColumnToContentValues(
+                cursor, cv, ContactQuery.PREFERRED_PHONE_ACCOUNT_COMPONENT_NAME);
+        cursorColumnToContentValues(cursor, cv, ContactQuery.PREFERRED_PHONE_ACCOUNT_ID);
 
         return cv;
     }
