@@ -45,6 +45,7 @@ import android.os.Build;
 import android.os.PersistableBundle;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.Contacts;
+import android.text.TextUtils;
 import androidx.annotation.VisibleForTesting;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.core.os.BuildCompat;
@@ -305,6 +306,9 @@ public class DynamicShortcuts {
     }
 
     public ShortcutInfo getQuickContactShortcutInfo(long id, String lookupKey, String displayName) {
+        if (TextUtils.isEmpty(displayName)) {
+            displayName = mContext.getResources().getString(R.string.missing_name);
+        }
         final ShortcutInfo.Builder builder = builderForContactShortcut(id, lookupKey, displayName);
         if (builder == null) {
             return null;
