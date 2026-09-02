@@ -7,10 +7,14 @@ import android.provider.ContactsContract.CommonDataKinds.SipAddress
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import androidx.annotation.StringRes
 import com.android.contacts.R
+import com.android.contacts.data.contactdetails.model.ContactAccount
 import com.android.contacts.data.contactdetails.model.ContactDetails
 import com.android.contacts.data.contactdetails.model.ContactDisplayNameSource
+import com.android.contacts.data.contactdetails.model.ContactGroup
 import com.android.contacts.data.contactdetails.model.ContactPhoto
 import com.android.contacts.data.settings.model.DisplayOrder
+import com.android.contacts.domain.calllog.model.RecentCall
+import com.android.contacts.domain.contactdetails.model.ContactConnectedApp
 import com.android.contacts.domain.contactdetails.model.ContactDetailsCards
 import com.android.contacts.domain.contactdetails.model.ContactDetailsMenu
 import com.android.contacts.domain.contactdetails.model.ContactEntry
@@ -19,21 +23,23 @@ import com.android.contacts.domain.contactdetails.model.ContactEntryGroup
 import com.android.contacts.domain.contactdetails.model.ContactEntryKind
 import com.android.contacts.domain.contactdetails.model.ContactEntryLabel
 import com.android.contacts.domain.contactdetails.model.ContactEntryText
-import com.android.contacts.domain.calllog.model.RecentCall
 import com.android.contacts.domain.contactdetails.model.ContactQuickAction
-import com.android.contacts.domain.telecom.model.CallingSimOptions
 import com.android.contacts.domain.contactdetails.usecase.IsEntryActionAvailable
+import com.android.contacts.domain.telecom.model.CallingSimOptions
 import com.android.contacts.ui.common.components.ContactAvatarImage
-import com.android.contacts.ui.contactdetails.screen.model.ContactDetailsAction
 import com.android.contacts.ui.contactdetails.screen.model.CallingSimAccountUiModel
 import com.android.contacts.ui.contactdetails.screen.model.CallingSimNumberUiModel
 import com.android.contacts.ui.contactdetails.screen.model.CallingSimUiModel
+import com.android.contacts.ui.contactdetails.screen.model.ContactAccountUiModel
+import com.android.contacts.ui.contactdetails.screen.model.ContactConnectedAppUiModel
+import com.android.contacts.ui.contactdetails.screen.model.ContactDetailsAction
 import com.android.contacts.ui.contactdetails.screen.model.ContactDetailsContent
 import com.android.contacts.ui.contactdetails.screen.model.ContactDetailsEmptyPromptUiModel
 import com.android.contacts.ui.contactdetails.screen.model.ContactEntryActionUiModel
 import com.android.contacts.ui.contactdetails.screen.model.ContactEntryGroupUiModel
 import com.android.contacts.ui.contactdetails.screen.model.ContactEntryIcon
 import com.android.contacts.ui.contactdetails.screen.model.ContactEntryUiModel
+import com.android.contacts.ui.contactdetails.screen.model.ContactGroupUiModel
 import com.android.contacts.ui.contactdetails.screen.model.ContactHeaderUiModel
 import com.android.contacts.ui.contactdetails.screen.model.ContactSettingIcon
 import com.android.contacts.ui.contactdetails.screen.model.ContactSettingUiModel
@@ -73,18 +79,22 @@ internal class ContactDetailsUiStateMapperImpl @Inject constructor(
     ): ContactDetailsContent {
         val callingSim = callingSim(callingSimOptions)
         val isEditable = !details.capabilities.isDirectoryEntry
-        val contactCard = mapGroups(cards.contactCard, isEditable)
-        val notes = mapGroups(cards.notes, isEditable)
+        val isCallingSimChangeable = callingSim != null
+        val contactCard = mapGroups(cards.contactCard, isEditable, isCallingSimChangeable)
+        val connectedApps = mapConnectedApps(cards.connectedApps, isEditable)
+        val notes = mapGroups(cards.notes, isEditable, isCallingSimChangeable)
 
         return ContactDetailsContent.Loaded(
             header = mapHeader(details, cards, displayOrder),
             quickActions = contactQuickActionsMapper.map(quickActions),
             recentCalls = recentCallsMapper.map(recentCalls),
             callingSim = callingSim,
-            groups = cards.groups.toImmutableList(),
+            groups = mapContactGroups(cards.groups),
             contactCard = contactCard,
+            connectedApps = connectedApps,
             notes = notes,
             settings = settings(details, menu, callingSim),
+            accounts = mapAccounts(details.accounts),
             emptyPrompt = emptyPrompt(details, contactCard, notes),
             menu = menu,
             isStarred = details.isStarred,
@@ -123,15 +133,19 @@ internal class ContactDetailsUiStateMapperImpl @Inject constructor(
         val quotedPhoneticName = phoneticName?.let { name ->
             context.getString(R.string.header_phonetic_name_quoted, name)
         }
-        val nameLine = listOfNotNull(cards.headerNickname, quotedPhoneticName)
-            .joinToString(SUBTITLE_SEPARATOR)
+        val nicknames = cards.headerNicknames
+            .joinToString(NICKNAME_SEPARATOR)
+            .takeIf { line -> line.isNotEmpty() }
+        val nameLine = listOfNotNull(
+            nicknames,
+            quotedPhoneticName,
+        ).joinToString(SUBTITLE_SEPARATOR)
+        val organizationLines = cards.headerOrganizations
+            .map { parts -> parts.joinToString(SUBTITLE_SEPARATOR) }
 
-        return listOfNotNull(
-            nameLine.takeIf { line -> line.isNotEmpty() },
-            cards.headerOrganizationParts
-                .joinToString(SUBTITLE_SEPARATOR)
-                .takeIf { line -> line.isNotEmpty() },
-        ).toImmutableList()
+        return (listOf(nameLine) + organizationLines)
+            .filter { line -> line.isNotEmpty() }
+            .toImmutableList()
     }
 
     private fun avatarImage(photo: ContactPhoto?): ContactAvatarImage? {
@@ -248,21 +262,77 @@ internal class ContactDetailsUiStateMapperImpl @Inject constructor(
         )
     }
 
+    private fun mapAccounts(accounts: List<ContactAccount>): ImmutableList<ContactAccountUiModel> {
+        return accounts
+            .map { account ->
+                ContactAccountUiModel(
+                    name = account.name,
+                    iconUri = account.iconUri,
+                )
+            }
+            .toImmutableList()
+    }
+
+    private fun mapContactGroups(
+        groups: List<ContactGroup>,
+    ): ImmutableList<ContactGroupUiModel> {
+        return groups
+            .map { group ->
+                ContactGroupUiModel(
+                    id = group.id,
+                    title = group.title,
+                )
+            }
+            .toImmutableList()
+    }
+
+    private fun mapConnectedApps(
+        connectedApps: List<ContactConnectedApp>,
+        isEditable: Boolean,
+    ): ImmutableList<ContactConnectedAppUiModel> {
+        return connectedApps
+            .map { connectedApp -> mapConnectedApp(connectedApp, isEditable) }
+            .toImmutableList()
+    }
+
+    private fun mapConnectedApp(
+        connectedApp: ContactConnectedApp,
+        isEditable: Boolean,
+    ): ContactConnectedAppUiModel {
+        return ContactConnectedAppUiModel(
+            packageName = connectedApp.app.packageName,
+            label = connectedApp.app.label,
+            iconUri = connectedApp.app.iconUri,
+            entries = connectedApp.entries
+                .map { entry ->
+                    mapEntry(
+                        mimeType = entry.mimeType,
+                        entry = entry,
+                        isDefaultChangeable = isEditable && entry.isSuperPrimary,
+                        isCallingSimChangeable = false,
+                    )
+                }
+                .toImmutableList(),
+        )
+    }
+
     private fun mapGroups(
         groups: List<ContactEntryGroup>,
         isEditable: Boolean,
+        isCallingSimChangeable: Boolean,
     ): ImmutableList<ContactEntryGroupUiModel> {
         return groups
-            .map { group -> mapGroup(group, isEditable) }
+            .map { group -> mapGroup(group, isEditable, isCallingSimChangeable) }
             .toImmutableList()
     }
 
     private fun mapGroup(
         group: ContactEntryGroup,
         isEditable: Boolean,
+        isCallingSimChangeable: Boolean,
     ): ContactEntryGroupUiModel {
         val hasSeveralOfMimeType = when (group.mimeType) {
-            Phone.CONTENT_ITEM_TYPE, Email.CONTENT_ITEM_TYPE -> group.entries.size > 1
+            in DEFAULT_MARKED_MIME_TYPES -> group.entries.size > 1
             else -> false
         }
 
@@ -270,12 +340,14 @@ internal class ContactDetailsUiStateMapperImpl @Inject constructor(
             entries = group.entries
                 .map { entry ->
                     val isDefaultChangeable =
-                        isEditable && (hasSeveralOfMimeType || entry.isSuperPrimary)
+                        isEditable && (hasSeveralOfMimeType || entry.isDefault)
 
                     mapEntry(
                         mimeType = group.mimeType,
                         entry = entry,
                         isDefaultChangeable = isDefaultChangeable,
+                        isCallingSimChangeable = isCallingSimChangeable &&
+                            entry.kind == ContactEntryKind.PHONE,
                     )
                 }
                 .toImmutableList(),
@@ -286,26 +358,30 @@ internal class ContactDetailsUiStateMapperImpl @Inject constructor(
         mimeType: String?,
         entry: ContactEntry,
         isDefaultChangeable: Boolean,
+        isCallingSimChangeable: Boolean,
     ): ContactEntryUiModel {
         return ContactEntryUiModel(
             id = entry.id,
             isSuperPrimary = entry.isSuperPrimary,
+            isDefault = entry.isDefault,
             isDefaultChangeable = isDefaultChangeable,
+            isCallingSimChangeable = isCallingSimChangeable,
             icon = entryIcon(entry.kind),
             header = text(entry.header),
             isHeaderLtr = isDialable(mimeType),
             subHeader = text(entry.subHeader),
             text = entryText(entry),
-            action = registeredAction(entry.actions.primary),
-            alternateAction = actionUiModel(registeredAction(entry.actions.alternate)),
-            thirdAction = actionUiModel(entry.actions.third),
+            action = registeredAction(entry.actions.primaryAction),
+            alternateAction = actionUiModel(registeredAction(entry.actions.alternateAction)),
+            enhancedCallAction = actionUiModel(entry.actions.enhancedCallAction),
+            editBeforeCallAction = registeredAction(entry.actions.editBeforeCallAction),
             copyText = entry.copyText,
             copyLabel = text(entry.copyLabel),
         )
     }
 
     private fun entryText(entry: ContactEntry): String? {
-        if (!entry.isSuperPrimary || !isDefaultMarked(entry.kind)) {
+        if (!entry.isDefault || !isDefaultMarked(entry.kind)) {
             return entry.text
         }
 
@@ -319,7 +395,7 @@ internal class ContactDetailsUiStateMapperImpl @Inject constructor(
     }
 
     private fun isDefaultMarked(kind: ContactEntryKind): Boolean {
-        return kind == ContactEntryKind.PHONE || kind == ContactEntryKind.EMAIL
+        return kind in DEFAULT_MARKED_KINDS
     }
 
     private fun isDialable(mimeType: String?): Boolean {
@@ -377,7 +453,18 @@ internal class ContactDetailsUiStateMapperImpl @Inject constructor(
                 contentDescription = context.getString(R.string.description_video_call),
             )
 
-            else -> null
+            is ContactEntryAction.Call,
+            is ContactEntryAction.EditNumberBeforeCall,
+            is ContactEntryAction.SipCall,
+            is ContactEntryAction.SendEmail,
+            is ContactEntryAction.ShowOnMap,
+            is ContactEntryAction.OpenUrl,
+            is ContactEntryAction.OpenChat,
+            is ContactEntryAction.ShowEventDate,
+            is ContactEntryAction.SearchContacts,
+            is ContactEntryAction.ViewDataItem,
+            null,
+            -> null
         }
     }
 
@@ -392,30 +479,39 @@ internal class ContactDetailsUiStateMapperImpl @Inject constructor(
 
         val entries = when {
             details.capabilities.areAllRawContactsSimAccounts -> {
-                persistentListOf(promptEntry(R.string.quickcontact_add_phone_number))
+                persistentListOf(phoneNumberPrompt())
             }
 
-            else -> persistentListOf(
-                promptEntry(R.string.quickcontact_add_phone_number),
-                promptEntry(R.string.quickcontact_add_email),
-            )
+            else -> persistentListOf(phoneNumberPrompt(), emailPrompt())
         }
 
         return ContactDetailsEmptyPromptUiModel(entries = entries)
     }
 
+    private fun phoneNumberPrompt(): ContactEntryUiModel {
+        return promptEntry(
+            icon = ContactEntryIcon.CALL,
+            headerResource = R.string.quickcontact_add_phone_number,
+        )
+    }
+
+    private fun emailPrompt(): ContactEntryUiModel {
+        return promptEntry(
+            icon = ContactEntryIcon.EMAIL,
+            headerResource = R.string.quickcontact_add_email,
+        )
+    }
+
     private fun promptEntry(
+        icon: ContactEntryIcon,
         @StringRes headerResource: Int,
     ): ContactEntryUiModel {
-        val icon = when (headerResource) {
-            R.string.quickcontact_add_phone_number -> ContactEntryIcon.CALL
-            else -> ContactEntryIcon.EMAIL
-        }
-
         return ContactEntryUiModel(
             id = NO_DATA_ID,
             isSuperPrimary = false,
+            isDefault = false,
             isDefaultChangeable = false,
+            isCallingSimChangeable = false,
             icon = icon,
             header = context.getString(headerResource),
             isHeaderLtr = false,
@@ -423,7 +519,8 @@ internal class ContactDetailsUiStateMapperImpl @Inject constructor(
             text = null,
             action = null,
             alternateAction = null,
-            thirdAction = null,
+            enhancedCallAction = null,
+            editBeforeCallAction = null,
             copyText = null,
             copyLabel = null,
         )
@@ -455,7 +552,20 @@ internal class ContactDetailsUiStateMapperImpl @Inject constructor(
     }
 
     private companion object {
+        val DEFAULT_MARKED_KINDS = setOf(
+            ContactEntryKind.PHONE,
+            ContactEntryKind.EMAIL,
+            ContactEntryKind.POSTAL,
+        )
+
+        val DEFAULT_MARKED_MIME_TYPES = setOf(
+            Phone.CONTENT_ITEM_TYPE,
+            Email.CONTENT_ITEM_TYPE,
+            StructuredPostal.CONTENT_ITEM_TYPE,
+        )
+
         const val NO_DATA_ID = -1L
         const val SUBTITLE_SEPARATOR = " • "
+        const val NICKNAME_SEPARATOR = ", "
     }
 }

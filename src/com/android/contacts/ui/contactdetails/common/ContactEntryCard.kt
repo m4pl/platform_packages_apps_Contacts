@@ -26,30 +26,31 @@ internal fun ContactEntryCard(
     onEntryCopyClick: (ContactEntryUiModel) -> Unit,
     onEntrySetDefaultClick: (ContactEntryUiModel) -> Unit,
     onEntryClearDefaultClick: (ContactEntryUiModel) -> Unit,
-    onAlternateActionClick: (ContactEntryAction) -> Unit,
-    onThirdActionClick: (ContactEntryAction) -> Unit,
+    onEntryCallingSimClick: () -> Unit,
+    onEntryActionClick: (ContactEntryAction) -> Unit,
     modifier: Modifier = Modifier,
     isTopRounded: Boolean = true,
 ) {
-    val entries = groups.flatMap { group -> group.entries }
+    val cells = contactEntryCells(groups)
 
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(ContactDetailsTokens.cardSpacing),
     ) {
-        entries.forEachIndexed { index, entry ->
+        cells.forEachIndexed { index, cell ->
             ContactEntryCell(
-                entry = entry,
+                entry = cell.entry,
+                isIconVisible = cell.isIconVisible,
                 shape = cellShape(
                     isFirst = isTopRounded && index == 0,
-                    isLast = index == entries.lastIndex,
+                    isLast = index == cells.lastIndex,
                 ),
                 onEntryClick = onEntryClick,
                 onEntryCopyClick = onEntryCopyClick,
                 onEntrySetDefaultClick = onEntrySetDefaultClick,
                 onEntryClearDefaultClick = onEntryClearDefaultClick,
-                onAlternateActionClick = onAlternateActionClick,
-                onThirdActionClick = onThirdActionClick,
+                onEntryCallingSimClick = onEntryCallingSimClick,
+                onEntryActionClick = onEntryActionClick,
             )
         }
     }
@@ -58,13 +59,14 @@ internal fun ContactEntryCard(
 @Composable
 private fun ContactEntryCell(
     entry: ContactEntryUiModel,
+    isIconVisible: Boolean,
     shape: Shape,
     onEntryClick: (ContactEntryUiModel) -> Unit,
     onEntryCopyClick: (ContactEntryUiModel) -> Unit,
     onEntrySetDefaultClick: (ContactEntryUiModel) -> Unit,
     onEntryClearDefaultClick: (ContactEntryUiModel) -> Unit,
-    onAlternateActionClick: (ContactEntryAction) -> Unit,
-    onThirdActionClick: (ContactEntryAction) -> Unit,
+    onEntryCallingSimClick: () -> Unit,
+    onEntryActionClick: (ContactEntryAction) -> Unit,
 ) {
     val onClick = when (entry.action) {
         null -> null
@@ -77,16 +79,34 @@ private fun ContactEntryCell(
     ) {
         ContactEntryRow(
             entry = entry,
-            isIconVisible = true,
+            isIconVisible = isIconVisible,
             onClick = onClick,
             onCopyClick = { onEntryCopyClick(entry) },
             onSetDefaultClick = { onEntrySetDefaultClick(entry) },
             onClearDefaultClick = { onEntryClearDefaultClick(entry) },
-            onAlternateActionClick = onAlternateActionClick,
-            onThirdActionClick = onThirdActionClick,
+            onCallingSimClick = onEntryCallingSimClick,
+            onEntryActionClick = onEntryActionClick,
         )
     }
 }
+
+internal fun contactEntryCells(
+    groups: List<ContactEntryGroupUiModel>,
+): List<ContactEntryCellModel> {
+    return groups.flatMap { group ->
+        group.entries.mapIndexed { index, entry ->
+            ContactEntryCellModel(
+                entry = entry,
+                isIconVisible = entry.icon != group.entries.getOrNull(index - 1)?.icon,
+            )
+        }
+    }
+}
+
+internal class ContactEntryCellModel(
+    val entry: ContactEntryUiModel,
+    val isIconVisible: Boolean,
+)
 
 @PreviewLightDark
 @Composable
@@ -115,8 +135,8 @@ private fun ContactEntryCardPreview() {
             onEntryCopyClick = {},
             onEntrySetDefaultClick = {},
             onEntryClearDefaultClick = {},
-            onAlternateActionClick = {},
-            onThirdActionClick = {},
+            onEntryCallingSimClick = {},
+            onEntryActionClick = {},
         )
     }
 }
@@ -137,7 +157,9 @@ private fun previewEntry(
         subHeader = null,
         text = text,
         isSuperPrimary = false,
+        isDefault = false,
         isDefaultChangeable = true,
+        isCallingSimChangeable = false,
         action = ContactEntryAction.Call(number = header),
         alternateAction = when (icon) {
             ContactEntryIcon.CALL -> ContactEntryActionUiModel(
@@ -148,7 +170,8 @@ private fun previewEntry(
 
             else -> null
         },
-        thirdAction = null,
+        enhancedCallAction = null,
+        editBeforeCallAction = null,
         copyText = header,
         copyLabel = text,
     )

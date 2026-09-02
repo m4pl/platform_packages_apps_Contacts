@@ -19,6 +19,9 @@ internal object ContactDetailsTokens {
     val quickActionLabelFadeWidth = 4.dp
     val quickActionPinnedPadding = 12.dp
 
+    val connectedAppToggleWidth = 32.dp
+    val connectedAppToggleHeight = 38.dp
+
     val recentCallDirectionSize = 16.dp
     val recentCallDirectionSpacing = 4.dp
 
@@ -46,6 +49,8 @@ internal object ContactDetailsTokens {
     val screenBottomPadding = 32.dp
     val cardGroupSpacing = 24.dp
     val sectionHeaderPadding = 16.dp
+    val accountRowSpacing = 8.dp
+    val accountRowAvatarSize = 28.dp
     val progressDialogPadding = 24.dp
     val progressDialogSpacing = 20.dp
 }

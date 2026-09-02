@@ -1,8 +1,8 @@
 package com.android.contacts.data.contactdetails.mapper
 
 import android.content.Context
-import android.provider.ContactsContract.CommonDataKinds.Email
 import android.media.RingtoneManager
+import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Event
 import android.provider.ContactsContract.CommonDataKinds.Im
 import android.provider.ContactsContract.CommonDataKinds.Phone
@@ -12,12 +12,14 @@ import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import android.provider.ContactsContract.DisplayNameSources as Sources
 import androidx.core.net.toUri
 import com.android.contacts.compat.EventCompat
+import com.android.contacts.data.contactdetails.model.ContactAccount
 import com.android.contacts.data.contactdetails.model.ContactCapabilities
 import com.android.contacts.data.contactdetails.model.ContactDataItem
 import com.android.contacts.data.contactdetails.model.ContactDetails
 import com.android.contacts.data.contactdetails.model.ContactDisplayNameSource
-import com.android.contacts.data.telecom.model.PhoneAccountId
+import com.android.contacts.data.contactdetails.model.ContactGroup
 import com.android.contacts.data.contactdetails.model.ContactPhoto
+import com.android.contacts.data.telecom.model.PhoneAccountId
 import com.android.contacts.detail.ContactDisplayUtils
 import com.android.contacts.model.AccountTypeManager
 import com.android.contacts.model.Contact
@@ -28,6 +30,7 @@ import com.android.contacts.model.dataitem.DataItem
 import com.android.contacts.model.dataitem.DataKind
 import com.android.contacts.model.dataitem.EmailDataItem
 import com.android.contacts.model.dataitem.EventDataItem
+import com.android.contacts.model.dataitem.GroupMembershipDataItem
 import com.android.contacts.model.dataitem.ImDataItem
 import com.android.contacts.model.dataitem.NicknameDataItem
 import com.android.contacts.model.dataitem.NoteDataItem
@@ -38,11 +41,11 @@ import com.android.contacts.model.dataitem.SipAddressDataItem
 import com.android.contacts.model.dataitem.StructuredNameDataItem
 import com.android.contacts.model.dataitem.StructuredPostalDataItem
 import com.android.contacts.model.dataitem.WebsiteDataItem
-import com.android.contacts.group.GroupMetaData
-import com.android.contacts.model.dataitem.GroupMembershipDataItem
 import com.android.contacts.quickcontact.DirectoryContactUtil
 import com.android.contacts.quickcontact.InvisibleContactUtil
 import com.android.contacts.util.DateUtils
+import com.android.contacts.util.core.extension.trimmedOrNull
+import com.android.contacts.util.core.resourceUri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.nio.ByteBuffer
 import javax.inject.Inject
@@ -80,16 +83,22 @@ internal class ContactDetailsMapperImpl @Inject constructor(
             customRingtone = contact.customRingtone,
             customRingtoneTitle = ringtoneTitle(contact.customRingtone),
             groups = mapGroups(contact),
+            accounts = mapAccounts(contact),
             dataItems = mapDataItems(contact, excludedMimeTypes),
             capabilities = mapCapabilities(contact),
         )
     }
 
-    private fun mapGroups(contact: Contact): List<String> {
+    private fun mapGroups(contact: Contact): List<ContactGroup> {
         val titles = contact.groupMetaData
             .orEmpty()
-            .filterNot { group -> group.favorites || group.defaultGroup }
-            .associateBy(GroupMetaData::groupId, GroupMetaData::groupName)
+            .filterNot { group ->
+                group.favorites || group.defaultGroup
+            }
+            .associateBy(
+                { group -> group.groupId },
+                { group -> group.groupName },
+            )
 
         return contact.rawContacts
             .orEmpty()
@@ -97,7 +106,48 @@ internal class ContactDetailsMapperImpl @Inject constructor(
             .filterIsInstance<GroupMembershipDataItem>()
             .mapNotNull { dataItem -> dataItem.groupRowId }
             .distinct()
-            .mapNotNull { groupId -> titles[groupId]?.trim()?.takeIf(String::isNotEmpty) }
+            .mapNotNull { groupId ->
+                mapContactGroup(groupId, titles[groupId])
+            }
+    }
+
+    private fun mapContactGroup(
+        groupId: Long,
+        title: String?,
+    ): ContactGroup? {
+        val groupTitle = title?.trimmedOrNull() ?: return null
+
+        return ContactGroup(
+            id = groupId,
+            title = groupTitle,
+        )
+    }
+
+    private fun mapAccounts(contact: Contact): List<ContactAccount> {
+        return contact.rawContacts
+            .orEmpty()
+            .mapNotNull { rawContact -> mapContactAccount(rawContact) }
+            .distinct()
+    }
+
+    private fun mapContactAccount(rawContact: RawContact): ContactAccount? {
+        val accountType = rawContact.getAccountType(context)
+
+        if (accountType?.areContactsWritable() != true) {
+            return null
+        }
+
+        val name = rawContact.accountName?.trimmedOrNull()
+            ?: accountType.getDisplayLabel(context)?.toString()?.trimmedOrNull()
+            ?: return null
+
+        return ContactAccount(
+            name = name,
+            iconUri = resourceUri(
+                packageName = accountType.syncAdapterPackageName ?: context.packageName,
+                resourceId = accountType.iconRes,
+            ),
+        )
     }
 
     private fun mapDisplayNameSource(displayNameSource: Int): ContactDisplayNameSource {
@@ -146,8 +196,8 @@ internal class ContactDetailsMapperImpl @Inject constructor(
             }
             .groupBy { dataItem -> dataItem.mimeType }
             .values
-            .flatMap(dataItemCollapser::collapse)
-            .map(::mapDataItem)
+            .flatMap { dataItems -> dataItemCollapser.collapse(dataItems) }
+            .map { dataItem -> mapDataItem(dataItem) }
     }
 
     private fun displayableDataItems(
@@ -298,8 +348,6 @@ internal class ContactDetailsMapperImpl @Inject constructor(
                 protocol,
                 dataItem.customProtocol,
             ).toString(),
-            isCustomProtocol = protocol == Im.PROTOCOL_CUSTOM,
-            chatCapability = dataItem.chatCapability,
         )
     }
 
@@ -445,7 +493,6 @@ internal class ContactDetailsMapperImpl @Inject constructor(
             isPrimary = dataItem.isPrimary,
             isSuperPrimary = dataItem.isSuperPrimary,
             displayString = displayString(dataItem),
-            givenName = dataItem.givenName,
         )
     }
 

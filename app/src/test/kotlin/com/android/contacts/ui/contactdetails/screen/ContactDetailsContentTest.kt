@@ -2,19 +2,17 @@ package com.android.contacts.ui.contactdetails.screen
 
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assert
-import androidx.compose.ui.test.assertIsOn
-import androidx.compose.ui.test.isToggleable
-import androidx.compose.ui.test.onChild
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.isToggleable
+import androidx.compose.ui.test.onChild
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -28,28 +26,34 @@ import com.android.contacts.data.contactdetails.model.ContactLinkOperation
 import com.android.contacts.domain.contactdetails.model.ContactDetailsEditAction
 import com.android.contacts.domain.contactdetails.model.ContactDetailsMenu
 import com.android.contacts.domain.contactdetails.model.ContactEntryAction
+import com.android.contacts.tests.factory.contactDetailsLoadedContent
 import com.android.contacts.tests.factory.contactDetailsMenu
 import com.android.contacts.tests.factory.contactEntryGroupUiModel
 import com.android.contacts.tests.factory.contactEntryUiModel
 import com.android.contacts.tests.factory.contactHeaderUiModel
 import com.android.contacts.tests.factory.contactQuickActionUiModel
+import com.android.contacts.tests.factory.contactSettingUiModel
+import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_ACCOUNTS_TEST_TAG
+import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_CONNECTED_APPS_TEST_TAG
 import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_CONTACT_CARD_TEST_TAG
 import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_EMPTY_PROMPT_TEST_TAG
 import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_HEADER_TEST_TAG
+import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_NOTES_TEST_TAG
 import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_PROGRESS_DIALOG_TEST_TAG
-import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_SETTING_TEST_TAG_PREFIX
 import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_QUICK_ACTIONS_TEST_TAG
 import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_QUICK_ACTION_TEST_TAG_PREFIX
-import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_NOTES_TEST_TAG
 import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_SETTINGS_TEST_TAG
 import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_SETTING_TEST_TAG_PREFIX
 import com.android.contacts.ui.contactdetails.screen.model.CONTACT_DETAILS_STAR_TEST_TAG
+import com.android.contacts.ui.contactdetails.screen.model.ContactAccountUiModel
+import com.android.contacts.ui.contactdetails.screen.model.ContactConnectedAppUiModel
 import com.android.contacts.ui.contactdetails.screen.model.ContactDetailsAction as Action
 import com.android.contacts.ui.contactdetails.screen.model.ContactDetailsContent as Content
 import com.android.contacts.ui.contactdetails.screen.model.ContactDetailsEmptyPromptUiModel
 import com.android.contacts.ui.contactdetails.screen.model.ContactDetailsUiState as State
 import com.android.contacts.ui.contactdetails.screen.model.ContactEntryGroupUiModel
 import com.android.contacts.ui.contactdetails.screen.model.ContactEntryIcon
+import com.android.contacts.ui.contactdetails.screen.model.ContactGroupUiModel
 import com.android.contacts.ui.contactdetails.screen.model.ContactQuickActionUiModel
 import com.android.contacts.ui.contactdetails.screen.model.ContactSettingIcon
 import com.android.contacts.ui.contactdetails.screen.model.ContactSettingUiModel
@@ -80,6 +84,51 @@ internal class ContactDetailsContentTest {
     }
 
     @Test
+    fun withConnectedApps_showsTheAppsAndKeepsTheirRowsHidden() = runComposeUiTest {
+        setContentWith(state = State(content = loadedContent(connectedApps = CONNECTED_APPS)))
+
+        scrollTo(CONTACT_DETAILS_CONNECTED_APPS_TEST_TAG)
+
+        onNodeWithText("Connected apps").assertExists()
+        onNodeWithText("Chat").assertIsDisplayed()
+        onNodeWithText("Message 088 525 7470").assertDoesNotExist()
+    }
+
+    @Test
+    fun whenAConnectedAppIsTapped_showsItsRows() = runComposeUiTest {
+        setContentWith(state = State(content = loadedContent(connectedApps = CONNECTED_APPS)))
+
+        scrollTo(CONTACT_DETAILS_CONNECTED_APPS_TEST_TAG)
+        onNodeWithText("Chat").performClick()
+
+        onNodeWithText("Message 088 525 7470").assertIsDisplayed()
+    }
+
+    @Test
+    fun whenAnOpenConnectedAppIsTapped_hidesItsRowsAgain() = runComposeUiTest {
+        setContentWith(state = State(content = loadedContent(connectedApps = CONNECTED_APPS)))
+
+        scrollTo(CONTACT_DETAILS_CONNECTED_APPS_TEST_TAG)
+        onNodeWithText("Chat").performClick()
+        onNodeWithText("Chat").performClick()
+
+        onNodeWithText("Message 088 525 7470").assertDoesNotExist()
+    }
+
+    @Test
+    fun withAnAccount_showsWhereTheContactInfoComesFrom() = runComposeUiTest {
+        val content = loadedContent(
+            accounts = persistentListOf(
+                ContactAccountUiModel(name = "alex@example.org", iconUri = null),
+            ),
+        )
+
+        setContentWith(state = State(content = content))
+        scrollTo(CONTACT_DETAILS_ACCOUNTS_TEST_TAG)
+        onNodeWithContentDescription("Contact info from alex@example.org").assertIsDisplayed()
+    }
+
+    @Test
     fun theTopBarHasNoOverflowMenu() = runComposeUiTest {
         setContentWith(state = State(content = loadedContent()))
 
@@ -91,15 +140,10 @@ internal class ContactDetailsContentTest {
 
     @Test
     fun withoutAnyEntries_showsThePromptInsteadOfTheCards() = runComposeUiTest {
-        val prompt = ContactDetailsEmptyPromptUiModel(
-            entries = persistentListOf(
-                contactEntryUiModel(id = -1L, header = "Add phone number", text = null),
-            ),
-        )
         val content = loadedContent(
             contactCard = persistentListOf(),
             notes = persistentListOf(),
-            emptyPrompt = prompt,
+            emptyPrompt = EMPTY_PROMPT,
         )
 
         setContentWith(state = State(content = content))
@@ -109,19 +153,31 @@ internal class ContactDetailsContentTest {
     }
 
     @Test
-    fun whenThePromptIsClicked_reportsAddDetails() = runComposeUiTest {
-        val prompt = ContactDetailsEmptyPromptUiModel(
-            entries = persistentListOf(
-                contactEntryUiModel(id = -1L, header = "Add phone number", text = null),
+    fun whenAGroupChipIsClicked_reportsTheGroupId() = runComposeUiTest {
+        val actions = mutableListOf<Action>()
+        setContentWith(
+            state = State(
+                content = loadedContent(
+                    groups = persistentListOf(ContactGroupUiModel(id = 11L, title = "Coworkers")),
+                ),
             ),
+            onAction = { action -> actions += action },
         )
+
+        onNodeWithContentDescription("Coworkers").performClick()
+
+        assertEquals(listOf(Action.GroupClick(11L)), actions)
+    }
+
+    @Test
+    fun whenThePromptIsClicked_reportsAddDetails() = runComposeUiTest {
         val actions = mutableListOf<Action>()
         setContentWith(
             state = State(
                 content = loadedContent(
                     contactCard = persistentListOf(),
                     notes = persistentListOf(),
-                    emptyPrompt = prompt,
+                    emptyPrompt = EMPTY_PROMPT,
                 ),
             ),
             onAction = { action -> actions += action },
@@ -234,12 +290,10 @@ internal class ContactDetailsContentTest {
     @Test
     fun forAToggleSetting_showsItsState() = runComposeUiTest {
         val settings = persistentListOf(
-            ContactSettingUiModel(
+            contactSettingUiModel(
                 icon = ContactSettingIcon.SEND_TO_VOICEMAIL,
                 title = "Send to voicemail",
-                subtitle = null,
                 action = Action.SendToVoicemailClick,
-                isDestructive = false,
                 isChecked = true,
             ),
         )
@@ -354,20 +408,27 @@ internal class ContactDetailsContentTest {
         menu: ContactDetailsMenu = contactDetailsMenu(),
         isStarred: Boolean = false,
         quickActions: ImmutableList<ContactQuickActionUiModel> = QUICK_ACTIONS,
+        connectedApps: ImmutableList<ContactConnectedAppUiModel> = persistentListOf(),
+        groups: ImmutableList<ContactGroupUiModel> = persistentListOf(),
+        accounts: ImmutableList<ContactAccountUiModel> = persistentListOf(),
     ): Content.Loaded {
-        return Content.Loaded(
-            callingSim = null,
-            recentCalls = persistentListOf(),
-            groups = persistentListOf(),
+        return contactDetailsLoadedContent(
             header = contactHeaderUiModel(displayName = "Anna Smith"),
             quickActions = quickActions,
+            groups = groups,
             contactCard = contactCard,
+            connectedApps = connectedApps,
             notes = notes,
             settings = settings,
+            accounts = accounts,
             emptyPrompt = emptyPrompt,
             menu = menu,
             isStarred = isStarred,
         )
+    }
+
+    private fun ComposeUiTest.scrollTo(testTag: String) {
+        onNode(hasScrollAction()).performScrollToNode(hasTestTag(testTag))
     }
 
     private fun ComposeUiTest.scrollToSetting(name: String) {
@@ -395,40 +456,45 @@ internal class ContactDetailsContentTest {
     }
 
     private companion object {
-        val SHARE_SETTING = ContactSettingUiModel(
+        val CONNECTED_APPS = persistentListOf(
+            ContactConnectedAppUiModel(
+                packageName = "com.example.chat",
+                label = "Chat",
+                iconUri = null,
+                entries = persistentListOf(
+                    contactEntryUiModel(
+                        id = 3L,
+                        header = "Message 088 525 7470",
+                        text = null,
+                    ),
+                ),
+            ),
+        )
+
+        val SHARE_SETTING = contactSettingUiModel(
             icon = ContactSettingIcon.SHARE,
             title = "Share",
-            subtitle = null,
             action = Action.ShareClick,
-            isDestructive = false,
-            isChecked = null,
         )
 
         val SETTINGS = persistentListOf(
-            ContactSettingUiModel(
+            contactSettingUiModel(
                 icon = ContactSettingIcon.RINGTONE,
                 title = "Set ringtone",
                 subtitle = "Bright Morning",
                 action = Action.RingtoneClick,
-                isDestructive = false,
-                isChecked = null,
             ),
             SHARE_SETTING,
-            ContactSettingUiModel(
+            contactSettingUiModel(
                 icon = ContactSettingIcon.SHORTCUT,
                 title = "Create shortcut",
-                subtitle = null,
                 action = Action.ShortcutClick,
-                isDestructive = false,
-                isChecked = null,
             ),
-            ContactSettingUiModel(
+            contactSettingUiModel(
                 icon = ContactSettingIcon.DELETE,
                 title = "Delete",
-                subtitle = null,
                 action = Action.DeleteClick,
                 isDestructive = true,
-                isChecked = null,
             ),
         )
 
@@ -438,6 +504,12 @@ internal class ContactDetailsContentTest {
                 icon = ContactEntryIcon.EMAIL,
                 label = "Email",
                 action = null,
+            ),
+        )
+
+        val EMPTY_PROMPT = ContactDetailsEmptyPromptUiModel(
+            entries = persistentListOf(
+                contactEntryUiModel(id = -1L, header = "Add phone number", text = null),
             ),
         )
     }
