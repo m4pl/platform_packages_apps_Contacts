@@ -12,10 +12,8 @@ import android.provider.ContactsContract.Settings as ContactsContractSettings
 import android.provider.Settings
 import android.telecom.TelecomManager
 import android.util.Log
-import com.android.contacts.activities.LicenseActivity
 import com.android.contacts.interactions.ExportDialogFragment
-import com.android.contacts.interactions.ImportDialogFragment
-import com.android.contacts.logging.ScreenEvent.ScreenType
+import com.android.contacts.ui.UIIntents
 import com.android.contacts.ui.settings.SettingsActivity
 import com.android.contacts.ui.settings.screen.model.SettingsEffect as Effect
 import com.android.contacts.util.ImplicitIntentsUtil
@@ -41,7 +39,6 @@ internal class SettingsEffectHandlerImpl(
             is Effect.ShowImportDialog -> showImportDialog()
             is Effect.ShowExportDialog -> showExportDialog()
             is Effect.OpenBlockedNumbers -> openBlockedNumbers()
-            is Effect.OpenLicenses -> openLicenses()
             is Effect.OpenAppPermissions -> openAppPermissions()
         }
     }
@@ -49,7 +46,7 @@ internal class SettingsEffectHandlerImpl(
     private fun openProfile(contactId: Long) {
         val contactUri = ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId)
 
-        ImplicitIntentsUtil.startQuickContact(activity, contactUri, ScreenType.ME_CONTACT)
+        ImplicitIntentsUtil.startQuickContact(activity, contactUri)
     }
 
     private fun copyBuildVersion(buildVersion: String) {
@@ -75,7 +72,7 @@ internal class SettingsEffectHandlerImpl(
     }
 
     private fun showImportDialog() {
-        ImportDialogFragment.show(activity.fragmentManager)
+        startActivity(UIIntents.getImportDialogIntent(activity))
     }
 
     private fun showExportDialog() {
@@ -97,10 +94,6 @@ internal class SettingsEffectHandlerImpl(
             .setData(Uri.fromParts("package", activity.packageName, null))
 
         startActivity(intent)
-    }
-
-    private fun openLicenses() {
-        startActivity(Intent(activity, LicenseActivity::class.java))
     }
 
     private fun startActivity(intent: Intent) {

@@ -20,27 +20,17 @@
         <item name="alertDialogTheme">@style/ContactsAlertDialogThemeAppCompat</item>
     </style>
 
+    <style name="Theme.Compose.Dialog" parent="Theme.Compose">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
     <style name="EditorActivityTheme" parent="@style/PeopleActivityTheme">
         <item name="actionBarStyle">@style/EditorActionBarStyle</item>
         <item name="colorButtonNormal">@color/background_primary</item>
         <item name="windowActionModeOverlay">true</item>
-    </style>
-
-    <style name="Theme.QuickContact" parent="@style/PeopleActivityTheme">
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:colorBackgroundCacheHint">@null</item>
-        <item name="android:windowFrame">@null</item>
-        <item name="android:windowContentOverlay">@null</item>
-        <item name="android:windowAnimationStyle">@null</item>
-        <item name="android:windowIsFloating">false</item>
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:listViewStyle">@style/ListViewStyle</item>
-        <!-- We need to use a light ripple behind ActionBar items in order for them to
-             be visible when using some of the darker ActionBar tints -->
-        <item name="android:actionBarItemBackground">
-            @drawable/item_background_material_borderless_dark
-        </item>
     </style>
 
     <style name="LaunchScreenTheme" parent="Theme.AppCompat.DayNight.DarkActionBar">
@@ -211,10 +201,6 @@
     <style name="ContactPickerTheme" parent="PeopleActivityTheme">
     </style>
 
-    <style name="ContactsPreferencesTheme" parent="@style/PeopleThemeAppCompat">
-        <item name="android:listViewStyle">@style/ListViewStyle</item>
-    </style>
-
     <style name="NonPhoneActivityTheme" parent="@android:Theme.Translucent.NoTitleBar">
     </style>
 
@@ -227,17 +213,6 @@
 
     <style name="SelectableItem" parent="Theme.AppCompat.DayNight">
         <item name="android:background">?android:attr/selectableItemBackground</item>
-    </style>
-
-    <style name="ExpandingEntryCardStyle">
-        <item name="android:elevation">@dimen/expanding_entry_card_elevation</item>
-        <item name="android:background">@color/expanding_entry_card_background_color</item>
-        <item name="android:layout_marginBottom">@dimen/expanding_entry_card_marginBottom</item>
-        <item name="android:layout_marginEnd">@dimen/expanding_entry_card_marginStartEnd</item>
-        <item name="android:layout_marginStart">@dimen/expanding_entry_card_marginStartEnd</item>
-        <item name="android:orientation">vertical</item>
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">wrap_content</item>
     </style>
 
     <style name="SpinnerButtonStyle" parent="@android:style/Widget.Material.Spinner.Underlined">
